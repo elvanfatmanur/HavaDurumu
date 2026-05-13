@@ -21,12 +21,17 @@
             </div>
             <button id="favoriteStarBtn" class="search-star" style="display: none;">★</button>
          </header>
+         
+         <div class="favorites-accordion" id="favAccordion" style="display: none;">
+            <button class="favorites-toggle" id="favToggle">
+                <span class="fav-icon">⭐</span>
+                Favori Şehirlerim
+                <span class="expand-icon" id="favExpandIcon">▼</span>
+            </button>
+            <div id="favoritesList" class="favorites-list"></div>
+         </div>
 
          <div class="controls-container">
-            <button id="getLocationBtn" class="premium-btn">
-                <span class="material-symbols-outlined">location_on</span>
-                Konumumu Kullan
-            </button>
             <button id="openModal" class="premium-btn qr-btn">
                 <span>📷 QR Kod</span>
             </button>
@@ -101,11 +106,7 @@
 
     </main>
 
-    <!-- Favorites Popover -->
-    <div id="favBox" class="fav-popover">
-        <!-- Content injected via JS -->
-    </div>
-    <div id="favButton" class="floating-fav">❤</div>
+    </main>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </body>

@@ -15,12 +15,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const currentDateTxt = document.querySelector('.current-date-txt');
     const forecastItemsContainer = document.querySelector('.forecast-items-container');
     
-    const getLocationBtn = document.getElementById('getLocationBtn');
     const openModalBtn = document.getElementById('openModal');
     const closeModalBtn = document.getElementById('closeModal');
     const modal = document.getElementById('modal');
-    const favBtn = document.getElementById('favButton');
-    const favBox = document.getElementById('favBox');
+    const favAccordion = document.getElementById('favAccordion');
+    const favToggle = document.getElementById('favToggle');
+    const favoritesList = document.getElementById('favoritesList');
     const favoriteStarBtn = document.getElementById('favoriteStarBtn');
 
     // --- Configuration ---
@@ -29,15 +29,31 @@ document.addEventListener("DOMContentLoaded", () => {
     historyDropdown.className = 'history-dropdown';
     document.querySelector('.search-wrapper').appendChild(historyDropdown);
 
+    const TURKISH_CITIES = [
+        "Adana", "Adıyaman", "Afyonkarahisar", "Ağrı", "Amasya", "Ankara", "Antalya", "Artvin", "Aydın", "Balıkesir",
+        "Bilecik", "Bingöl", "Bitlis", "Bolu", "Burdur", "Bursa", "Çanakkale", "Çankırı", "Çorum", "Denizli",
+        "Diyarbakır", "Edirne", "Elazığ", "Erzincan", "Erzurum", "Eskişehir", "Gaziantep", "Giresun", "Gümüşhane", "Hakkari",
+        "Hatay", "Isparta", "Mersin", "İstanbul", "İzmir", "Kars", "Kastamonu", "Kayseri", "Kırklareli", "Kırşehir",
+        "Kocaeli", "Konya", "Kütahya", "Malatya", "Manisa", "Kahramanmaraş", "Mardin", "Muğla", "Muş", "Nevşehir",
+        "Niğde", "Ordu", "Rize", "Sakarya", "Samsun", "Siirt", "Sinop", "Sivas", "Tekirdağ", "Tokat",
+        "Trabzon", "Tunceli", "Şanlıurfa", "Uşak", "Van", "Yozgat", "Zonguldak", "Aksaray", "Bayburt", "Karaman",
+        "Kırıkkale", "Batman", "Şırnak", "Bartın", "Ardahan", "Iğdır", "Yalova", "Karabük", "Kilis", "Osmaniye", "Düzce"
+    ];
+
     // --- Core Functions ---
 
     /**
      * Fetches weather data from OpenWeatherMap API
      */
-    async function fetchWeatherData(endpoint, city) {
-        const url = `https://api.openweathermap.org/data/2.5/${endpoint}?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric&lang=tr`;
+    async function fetchWeatherData(endpoint, query) {
+        let url;
+        if (typeof query === 'object' && query !== null && 'lat' in query && 'lon' in query) {
+            url = `https://api.openweathermap.org/data/2.5/${endpoint}?lat=${query.lat}&lon=${query.lon}&appid=${apiKey}&units=metric&lang=tr`;
+        } else {
+            url = `https://api.openweathermap.org/data/2.5/${endpoint}?q=${encodeURIComponent(query)}&appid=${apiKey}&units=metric&lang=tr`;
+        }
         const response = await fetch(url);
-        if (!response.ok) throw new Error('City not found');
+        if (!response.ok) throw new Error('Location not found');
         return response.json();
     }
 
@@ -63,10 +79,10 @@ document.addEventListener("DOMContentLoaded", () => {
     /**
      * Main function to update UI with weather data
      */
-    async function updateWeatherUI(city) {
+    async function updateWeatherUI(query) {
         try {
             // Show loading state (optional: add a spinner here)
-            const data = await fetchWeatherData('weather', city);
+            const data = await fetchWeatherData('weather', query);
             
             const { name, main: { temp, humidity }, weather: [{ id, description }], wind: { speed } } = data;
 
@@ -84,7 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (temp > 30) showNotification("Hava çok sıcak, bol su iç! ☀️");
 
             // Update Forecast
-            await updateForecastUI(city);
+            await updateForecastUI(query);
 
             // Show weather section
             showSection(weatherInfoSection);
@@ -102,6 +118,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
         } catch (error) {
             console.error("Weather error:", error);
+            if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+                showNotification("Ağ hatası: İnternet bağlantınızı veya reklam engelleyicinizi (adblock) kontrol edin.");
+            } else {
+                showNotification(`Hata: ${error.message}`);
+            }
             showSection(notFoundSection);
         }
     }
@@ -109,9 +130,9 @@ document.addEventListener("DOMContentLoaded", () => {
     /**
      * Updates the 5-day forecast UI
      */
-    async function updateForecastUI(city) {
+    async function updateForecastUI(query) {
         try {
-            const data = await fetchWeatherData('forecast', city);
+            const data = await fetchWeatherData('forecast', query);
             forecastItemsContainer.innerHTML = '';
             
             // Filter to get roughly one forecast per day (taking 12:00:00)
@@ -151,6 +172,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- Search History (LocalStorage) ---
 
     function saveToHistory(city) {
+        if (!city || typeof city !== 'string') return;
         let history = JSON.parse(localStorage.getItem('searchHistory')) || [];
         history = history.filter(c => c.toLowerCase() !== city.toLowerCase());
         history.unshift(city);
@@ -158,7 +180,7 @@ document.addEventListener("DOMContentLoaded", () => {
         renderHistory();
     }
 
-    function renderHistory() {
+    function renderHistory(showDropdown = false) {
         const history = JSON.parse(localStorage.getItem('searchHistory')) || [];
         historyDropdown.innerHTML = '';
         if (history.length === 0) {
@@ -169,7 +191,7 @@ document.addEventListener("DOMContentLoaded", () => {
         history.forEach(city => {
             const item = document.createElement('div');
             item.className = 'history-item';
-            item.textContent = city;
+            item.innerHTML = `🕒 ${city}`;
             item.onclick = () => {
                 cityInput.value = city;
                 updateWeatherUI(city);
@@ -177,6 +199,8 @@ document.addEventListener("DOMContentLoaded", () => {
             };
             historyDropdown.appendChild(item);
         });
+        
+        historyDropdown.style.display = showDropdown ? 'block' : 'none';
     }
 
     // --- Favorites (LocalStorage) ---
@@ -202,28 +226,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function renderFavorites() {
         const favorites = JSON.parse(localStorage.getItem('favorites')) || [];
-        favBox.innerHTML = '<div class="fav-header">Favori Şehirler</div>';
+        favoritesList.innerHTML = '';
         
         if (favorites.length === 0) {
-            favBox.innerHTML += '<div style="opacity: 0.5; font-style: italic; padding: 10px 0;">Favori listeniz boş.</div>';
+            favAccordion.style.display = 'none';
+            favToggle.classList.remove('open');
+            favoritesList.classList.remove('open');
             return;
         }
+        
+        favAccordion.style.display = 'block';
 
         favorites.forEach(city => {
             const item = document.createElement('div');
-            item.className = "favorite-item";
+            item.className = "fav-list-item";
             
             const citySpan = document.createElement('span');
-            citySpan.className = "favorite-city";
+            citySpan.className = "fav-list-item-name";
             citySpan.textContent = city;
             citySpan.onclick = () => {
                 updateWeatherUI(city);
-                favBox.style.display = 'none';
+                favToggle.classList.remove('open');
+                favoritesList.classList.remove('open');
             };
             
             const deleteBtn = document.createElement('span');
-            deleteBtn.className = "delete-button";
-            deleteBtn.innerHTML = "🗑";
+            deleteBtn.className = "fav-list-item-remove";
+            deleteBtn.innerHTML = "✖";
             deleteBtn.onclick = (e) => {
                 e.stopPropagation();
                 toggleFavorite(city);
@@ -231,7 +260,7 @@ document.addEventListener("DOMContentLoaded", () => {
             
             item.appendChild(citySpan);
             item.appendChild(deleteBtn);
-            favBox.appendChild(item);
+            favoritesList.appendChild(item);
         });
     }
 
@@ -284,40 +313,56 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     cityInput.addEventListener('focus', () => {
-        renderHistory();
-        const history = JSON.parse(localStorage.getItem('searchHistory')) || [];
-        if (history.length > 0) historyDropdown.style.display = 'block';
+        if (cityInput.value.trim() === '') {
+            renderHistory(true);
+        }
+    });
+
+    cityInput.addEventListener('input', (e) => {
+        const val = e.target.value.trim().toLocaleLowerCase('tr-TR');
+        historyDropdown.innerHTML = '';
+        if (!val) {
+            renderHistory(true);
+            return;
+        }
+
+        const matches = TURKISH_CITIES.filter(city => city.toLocaleLowerCase('tr-TR').startsWith(val));
+        if (matches.length > 0) {
+            historyDropdown.style.display = 'block';
+            matches.slice(0, 5).forEach(city => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.innerHTML = `<strong>${city.substring(0, val.length)}</strong>${city.substring(val.length)}`;
+                item.onclick = () => {
+                    cityInput.value = city;
+                    updateWeatherUI(city);
+                    historyDropdown.style.display = 'none';
+                };
+                historyDropdown.appendChild(item);
+            });
+        } else {
+            historyDropdown.style.display = 'none';
+        }
     });
 
     document.addEventListener('click', (e) => {
         if (!cityInput.contains(e.target) && !historyDropdown.contains(e.target)) {
             historyDropdown.style.display = 'none';
         }
-        if (!favBtn.contains(e.target) && !favBox.contains(e.target)) {
-            favBox.style.display = 'none';
-        }
     });
 
-    getLocationBtn.addEventListener('click', () => {
+    function fetchWeatherByLocation(showErrorNotifications = true) {
         if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(async (position) => {
+            navigator.geolocation.getCurrentPosition((position) => {
                 const { latitude, longitude } = position.coords;
-                try {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-                    const data = await response.json();
-                    const city = data.address.city || data.address.town || data.address.village;
-                    if (city) updateWeatherUI(city);
-                    else showNotification("Şehir bilgisi alınamadı.");
-                } catch (error) {
-                    showNotification("Konum alınırken hata oluştu.");
-                }
+                updateWeatherUI({ lat: latitude, lon: longitude });
             }, () => {
-                showNotification("Konum izni verilmedi.");
+                if (showErrorNotifications) showNotification("Konum izni verilmedi.");
             });
         } else {
-            showNotification("Tarayıcınız konumu desteklemiyor.");
+            if (showErrorNotifications) showNotification("Tarayıcınız konumu desteklemiyor.");
         }
-    });
+    }
 
     openModalBtn.addEventListener('click', () => {
         modal.classList.add('open');
@@ -328,12 +373,15 @@ document.addEventListener("DOMContentLoaded", () => {
         modal.classList.remove('open');
     });
 
-    favBtn.addEventListener('click', () => {
-        const isVisible = favBox.style.display === 'block';
-        favBox.style.display = isVisible ? 'none' : 'block';
-        if (!isVisible) renderFavorites();
+    favToggle.addEventListener('click', () => {
+        favToggle.classList.toggle('open');
+        favoritesList.classList.toggle('open');
     });
 
     // Initial render
     renderHistory();
+    renderFavorites();
+
+    // Uygulama açılışında konumu otomatik olarak iste
+    fetchWeatherByLocation(false);
 });

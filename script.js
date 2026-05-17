@@ -366,7 +366,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     openModalBtn.addEventListener('click', () => {
         modal.classList.add('open');
-        generateQRCode(window.location.href);
+        generateQRCode("https://elvanfatmanur.github.io/HavaDurumu/");
     });
 
     closeModalBtn.addEventListener('click', () => {
